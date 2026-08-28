@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "LG Quick Clip",
+  "version": "0.1.0",
+  "description": "カテゴリ別の定型文を素早く呼び出してフォームへ入力するChrome拡張機能。",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAnC6YnCl5y1p774DMRX4idJfdIVZuD2hOh63FDDx0b9ysHzcCbh98YQ0XgraaLB+9I4yvdR4UQkHmZSGvz1+Hf+E1UVSRI1FGYaKgr0isS3ozdr/dZmuxI8wYSCfJOFhhXsUgcFj2mQnk9xlKdSXATALWXN4TRgyXbPpLUHB+t6EEz0PNbnC1pY+4qk2KbcFg10Oo8xNzoaOlmscl6EB4h33Sf8VJfhRoJmowEGL83rZe6iHcsJlTz2WEQUpgBhgyQlulHEtghHC36HR3ADR74aIgvc+5QfVqRYPahLqwX3W6NlNtcKq3r1D7a6qgMlLPi+3E1NNyKVgTPQnVRbZ4/wIDAQAB",
+
+  "permissions": ["storage"],
+
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/content.js"]
+    }
+  ]
+}
