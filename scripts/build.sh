@@ -9,10 +9,10 @@ echo "==> TypeScript をコンパイルします..."
 npx tsc
 
 echo "==> 静的ファイルをコピーします..."
-mkdir -p dist/popup
+mkdir -p dist/sidepanel
 
 cp public/manifest.json dist/manifest.json
-cp src/popup/popup.html dist/popup/popup.html
-cp src/popup/popup.css dist/popup/popup.css
+cp src/sidepanel/sidepanel.html dist/sidepanel/sidepanel.html
+cp src/sidepanel/sidepanel.css dist/sidepanel/sidepanel.css
 
 echo "==> ビルド完了"
