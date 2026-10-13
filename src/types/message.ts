@@ -1,6 +1,12 @@
 /** Side Panelとcontent script間の要求・応答を共有型で表す。 */
 // import/exportを置かない宣言により、content scriptの出力を非moduleのまま保つ。
-type QuickClipFailure = "NO_TARGET" | "UNSUPPORTED_TARGET" | "UNSUPPORTED_PAGE" | "STALE_TARGET" | "INVALID_MESSAGE" | "WRITE_FAILED";
+type QuickClipFailure =
+  | "NO_TARGET"
+  | "UNSUPPORTED_TARGET"
+  | "UNSUPPORTED_PAGE"
+  | "STALE_TARGET"
+  | "INVALID_MESSAGE"
+  | "WRITE_FAILED";
 // 予約と入力を分け、文字列の投入には受信側が発行した一度限りのトークンを要求する。
 type QuickClipMessage =
   | { type: "PREPARE_CLIP" }

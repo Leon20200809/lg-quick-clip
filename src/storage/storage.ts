@@ -34,7 +34,9 @@ export async function getClips(): Promise<Clip[]> {
   const stored = await chrome.storage.local.get(STORAGE_KEYS.clips);
   const clips: unknown = stored[STORAGE_KEYS.clips];
   if (!Array.isArray(clips) || !clips.every(isClip)) {
-    throw new Error("保存済みClipの形式が正しくありません。既存データは変更していません。");
+    throw new Error(
+      "保存済みClipの形式が正しくありません。既存データは変更していません。",
+    );
   }
   return clips;
 }
@@ -43,7 +45,13 @@ export async function getClips(): Promise<Clip[]> {
 function isClip(value: unknown): value is Clip {
   if (!value || typeof value !== "object") return false;
   const clip = value as Partial<Clip>;
-  return typeof clip.id === "string" && typeof clip.categoryId === "string" &&
-    typeof clip.label === "string" && typeof clip.text === "string" &&
-    typeof clip.pinned === "boolean" && typeof clip.order === "number" && Number.isFinite(clip.order);
+  return (
+    typeof clip.id === "string" &&
+    typeof clip.categoryId === "string" &&
+    typeof clip.label === "string" &&
+    typeof clip.text === "string" &&
+    typeof clip.pinned === "boolean" &&
+    typeof clip.order === "number" &&
+    Number.isFinite(clip.order)
+  );
 }
