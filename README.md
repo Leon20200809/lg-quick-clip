@@ -15,6 +15,19 @@ npm run build
 
 Chromeの専用テストプロファイルで `chrome://extensions` → デベロッパーモード →「パッケージ化されていない拡張機能を読み込む」から `dist` を選びます。拡張アイコンをクリックしてSide Panelを開き、HTTP(S)ページの対応する欄を選び、Clipを押します。既存値は残さず置き換わります。成功は受信側の応答後に表示します。拡張を更新・再読み込みした場合、対象ページも再読み込みしてください。
 
+## 整形をVS CodeとCLIで揃える
+
+Prettier **3.9.10**をdevDependencyとlockfileで固定し、`.prettierrc.json` の空オブジェクトで標準設定を使います。独自の引用符・改行幅等は追加していません。既存の日本語コメントと処理は維持します。
+
+1. ブランチを取得した後に `npm ci` を実行します。
+2. VS Codeの `esbenp.prettier-vscode` を利用します。リポジトリの推奨拡張とTypeScript用の保存時整形設定を追加しています。信頼済みワークスペースではローカルにインストールしたPrettierを使います。
+3. `npm run format` で `src/**/*.ts` を整形し、`npm run format:check` で差分なく再現できるか確認します。今回の一括整形対象はTypeScriptのみで、HTML・CSS・テストfixture等は含めません。
+4. 同じ版・設定でも保存時に差分が出る場合は、VS Codeの出力「Prettier」で選択されたバージョンと設定ファイルを確認してください。CLI確認後、再度保存して差分が増えないかローカルで確認します。
+
+未コミットの作業がある場合は、内容を確認してcommitまたはstashで保護してから更新してください。`unlink: Invalid argument` の原因はこの整形差分からは確定できず、別の環境問題として扱います。
+
+参考: [Prettier公式導入手順](https://prettier.io/docs/install)、[VS Code拡張のローカル版解決](https://github.com/prettier/prettier-vscode#prettier-resolution)。
+
 ## 対象・安全上の限界
 
 - HTTP(S)のトップフレームのみ。`input` の `text`（type省略含む）・`email`・`tel` と `textarea`。
