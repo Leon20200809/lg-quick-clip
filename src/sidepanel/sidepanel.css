@@ -1,0 +1,7 @@
+body { font-family: system-ui, sans-serif; margin: 16px; }
+h1 { font-size: 1.25rem; }
+#status { line-height: 1.5; min-height: 3em; }
+#status[data-state="error"] { color: #a31515; }
+#clip-list { display: grid; gap: 8px; }
+button { padding: 10px; text-align: left; cursor: pointer; }
+button:disabled { cursor: wait; }

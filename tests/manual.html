@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><title>Quick Clip local acceptance fixture</title>
+<style>label{display:block;margin:12px}input,textarea{display:block}pre{white-space:pre-wrap}</style>
+<h1>Quick Clip manual checks (sample data only)</h1>
+<form id="form">
+<label>A / omitted type <input id="a" value="original A"></label>
+<label>B / text <input id="b" type="text" value="original B"></label>
+<label>Email <input type="email" value="before@example.com"></label>
+<label>Tel <input type="tel" value="000"></label>
+<label>Textarea <textarea>original text</textarea></label>
+<label>Password <input type="password" value="sample-only"></label>
+<label>Username <input autocomplete="username"></label>
+<label>OTP <input autocomplete="one-time-code"></label>
+<label>Readonly <input readonly value="unchanged"></label>
+<label>Disabled <input disabled value="unchanged"></label>
+<fieldset disabled><label>Disabled fieldset <input value="unchanged"></label></fieldset>
+<label>Number <input type="number" value="7"></label>
+<label>Search <input type="search" value="unchanged"></label>
+<label>URL <input type="url" value="https://example.com"></label>
+<label>Select <select><option>unchanged</option></select></label>
+<div contenteditable="true">Contenteditable: unchanged</div>
+<div id="shadow"></div>
+<iframe title="excluded iframe" srcdoc="<input value='iframe unchanged'>"></iframe>
+<button type="submit">Submit (manual only)</button>
+</form>
+<pre id="events">input: 0; submit: 0</pre>
+<script>
+let inputs=0, submits=0;
+const log=document.querySelector('#events');
+document.addEventListener('input', e=>{inputs++;log.textContent=`input: ${inputs}; submit: ${submits}; target: ${e.target.id || e.target.type || e.target.tagName}`;});
+document.querySelector('#form').addEventListener('submit',e=>{e.preventDefault();submits++;log.textContent=`input: ${inputs}; submit: ${submits}`;});
+document.querySelector('#shadow').attachShadow({mode:'open'}).innerHTML='<label>Shadow DOM<input value="shadow unchanged"></label>';
+</script></html>

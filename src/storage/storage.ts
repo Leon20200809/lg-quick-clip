@@ -12,25 +12,33 @@ export async function initializeStorage(): Promise<void> {
     STORAGE_KEYS.clips,
   ]);
 
-  if (!stored.categories) {
+  if (!Object.hasOwn(stored, STORAGE_KEYS.categories)) {
     await chrome.storage.local.set({
       categories: defaultCategories,
     });
   }
 
-  if (!stored.clips) {
+  if (!Object.hasOwn(stored, STORAGE_KEYS.clips)) {
     await chrome.storage.local.set({
       clips: defaultClips,
     });
   }
 }
 
-/** Storageから登録済みのClip一覧を取得する。 */
+/** Invalid existing data is reported, never silently reset or overwritten. */
 export async function getClips(): Promise<Clip[]> {
   const stored = await chrome.storage.local.get(STORAGE_KEYS.clips);
+  const clips: unknown = stored[STORAGE_KEYS.clips];
+  if (!Array.isArray(clips) || !clips.every(isClip)) {
+    throw new Error("保存済みClipの形式が正しくありません。既存データは変更していません。");
+  }
+  return clips;
+}
 
-  /** Storageから取得した値をClip配列として扱う。 */
-  const clips = stored[STORAGE_KEYS.clips] as Clip[] | undefined;
-
-  return clips ?? [];
+function isClip(value: unknown): value is Clip {
+  if (!value || typeof value !== "object") return false;
+  const clip = value as Partial<Clip>;
+  return typeof clip.id === "string" && typeof clip.categoryId === "string" &&
+    typeof clip.label === "string" && typeof clip.text === "string" &&
+    typeof clip.pinned === "boolean" && typeof clip.order === "number" && Number.isFinite(clip.order);
 }
