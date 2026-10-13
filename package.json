@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npm run build && node --test tests/*.test.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "build": "bash scripts/build.sh"
+    "build": "bash scripts/build.sh",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\""
   },
   "keywords": [],
   "author": "",
@@ -13,6 +15,7 @@
   "description": "",
   "devDependencies": {
     "@types/chrome": "^0.2.7",
+    "prettier": "3.9.10",
     "typescript": "^7.0.2"
   }
 }
