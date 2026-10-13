@@ -1,3 +1,4 @@
+/** 保存Clipを表示し、選択タブへの入力要求と利用者向けの結果表示を担当する。 */
 import { getClips, initializeStorage } from "../storage/storage.js";
 
 const clipList = document.querySelector<HTMLDivElement>("#clip-list")!;
@@ -14,10 +15,12 @@ const errors: Record<QuickClipFailure, string> = {
   WRITE_FAILED: "入力できませんでした。入力欄を選び直してください。",
 };
 
+/** 結果を文字列として表示し、保存データや通信内容をHTMLとして解釈させない。 */
 function show(message: string, error = false): void {
   status.textContent = message;
   status.dataset.state = error ? "error" : "info";
 }
+/** タブ・ページ変更の世代を進め、以前の通信結果が新しい案内を上書きしないようにする。 */
 function contextChanged(): void {
   contextVersion++;
   show("タブ・ページが変わりました。入力欄を確認してからClipを押してください。");
@@ -27,6 +30,7 @@ chrome.tabs.onUpdated.addListener((_id, change) => {
   if (change.status === "loading") contextChanged();
 });
 
+/** 外部応答の基本形を検証し、既知の失敗コードを利用者向けの説明へ変換する。 */
 function response(value: unknown): QuickClipResponse {
   if (!value || typeof value !== "object") throw new Error("入力結果を確認できませんでした。拡張とページを再読み込みしてください。");
   const result = value as Partial<{ ok: boolean; code: QuickClipFailure; token: string; inserted: boolean }>;
@@ -35,7 +39,9 @@ function response(value: unknown): QuickClipResponse {
   throw new Error("入力結果を確認できませんでした。拡張とページを再読み込みしてください。");
 }
 
+/** 現在タブの入力先を予約・再確認して全置換を依頼し、受信側の実行結果を表示する。 */
 async function sendClipText(text: string): Promise<void> {
+  // 通信中の再クリックを抑え、同じ操作が並行して欄を置き換えないようにする。
   if (busy) return;
   busy = true;
   buttons.forEach(button => { button.disabled = true; });
@@ -44,18 +50,21 @@ async function sendClipText(text: string): Promise<void> {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (typeof tab?.id !== "number") throw new Error("現在のタブが見つかりません。ページを開いてください。");
-    // URL may be absent without the tabs permission. The receiver also checks its protocol.
+    // tabs権限なしではURLが得られない場合があるため、受信側でもプロトコルを検査する。
     if (tab.url && !/^https?:\/\//i.test(tab.url)) throw new Error(errors.UNSUPPORTED_PAGE);
     const prepared = response(await chrome.tabs.sendMessage(tab.id, { type: "PREPARE_CLIP" } satisfies QuickClipMessage, { frameId: 0 }));
     if (!("token" in prepared) || typeof prepared.token !== "string" || !prepared.token) throw new Error(errors.INVALID_MESSAGE);
+    // 事前確認を待つ間のタブ切替・ナビゲーションを検知してから本文を送る。
     const [current] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (version !== contextVersion || current?.id !== tab.id) throw new Error(errors.STALE_TARGET);
     const inserted = response(await chrome.tabs.sendMessage(tab.id, {
       type: "INSERT_TEXT", text, token: prepared.token,
     } satisfies QuickClipMessage, { frameId: 0 }));
+    // 予約成功だけでは入力成功にしない。入力段階の明示的な成功応答が必要。
     if (!("inserted" in inserted) || inserted.inserted !== true) throw new Error(errors.INVALID_MESSAGE);
     if (version === contextVersion) show("入力欄の値をClipで置き換えました。");
   } catch (error) {
+    // 古い操作の失敗で新しい案内を上書きせず、未知の通信エラーは安全な復旧案内にまとめる。
     if (version === contextVersion) {
       const message = error instanceof Error ? error.message : "";
       const known = Object.values(errors).includes(message) || message.startsWith("現在のタブ") || message.startsWith("入力結果");
@@ -67,6 +76,7 @@ async function sendClipText(text: string): Promise<void> {
   }
 }
 
+// 初期化・読込が成功したClipだけを描画し、失敗を空一覧や成功として扱わない。
 try {
   await initializeStorage();
   const clips = (await getClips()).sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.order - b.order);
