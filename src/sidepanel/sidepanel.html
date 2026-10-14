@@ -14,6 +14,32 @@
 
       <p id="status" role="status" aria-live="polite" aria-atomic="true"></p>
 
+      <p class="notice">パスワード・APIキーなどの秘密情報は保存しないでください。ClipはこのChromeプロファイルのローカルに保存されます。</p>
+      <button id="new-clip" type="button" disabled>新規作成</button>
+      <p id="management-status" role="status" aria-live="polite" aria-atomic="true"></p>
+      <form id="clip-form" hidden novalidate>
+        <h2 id="editor-title">Clipを作成</h2>
+        <label for="clip-label">表示名</label>
+        <input id="clip-label" type="text" aria-describedby="label-help label-error" />
+        <p id="label-help" class="help">80文字まで（UTF-16単位）。前後の空白は除きます。</p>
+        <p id="label-error" class="field-error"></p>
+        <label for="clip-text">本文</label>
+        <textarea id="clip-text" rows="6" aria-describedby="text-help text-error"></textarea>
+        <p id="text-help" class="help">10,000文字まで（UTF-16単位）。改行・前後の空白を保持します。既存の上限超過項目は変更しなければ保持します。</p>
+        <p id="text-error" class="field-error"></p>
+        <div class="clip-actions">
+          <button id="save-clip" type="submit">保存</button>
+          <button id="cancel-edit" type="button">キャンセル</button>
+        </div>
+      </form>
+      <section id="delete-confirmation" hidden aria-labelledby="delete-title">
+        <h2 id="delete-title">Clipの削除確認</h2>
+        <p id="delete-description"></p>
+        <div class="clip-actions">
+          <button id="confirm-delete" type="button">削除する</button>
+          <button id="cancel-delete" type="button">キャンセル</button>
+        </div>
+      </section>
       <!-- Storageから読み込んだClip一覧を表示する。 -->
       <div id="clip-list"></div>
     </main>

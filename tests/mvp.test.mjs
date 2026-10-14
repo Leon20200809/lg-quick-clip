@@ -82,7 +82,7 @@ test('wrong protocol, malformed payload and write exceptions return failure', ()
 
 async function stored(initial, fail = false) {
   const data = structuredClone(initial), writes = [];
-  const context = { defaultCategories:[{id:'sample'}], defaultClips:[], chrome:{storage:{local:{
+  const context = { navigator: {locks: {request: async (_name, callback) => callback()}}, defaultCategories:[{id:'sample'}], defaultClips:[], chrome:{storage:{local:{
     get:async () => { if(fail) throw new Error('read failed'); return data; }, set:async values => { writes.push(values); Object.assign(data, values); }
   }}}};
   vm.runInNewContext(storage + '\nthis.api = {initializeStorage,getClips};', context);
@@ -92,7 +92,7 @@ test('storage only initializes absent keys and preserves valid empty or existing
   for(const clips of [[], [{id:'x',categoryId:'p',label:'Saved',text:'kept',pinned:false,order:1}]]) {
     const s=await stored({clips,categories:[]}); await s.initializeStorage(); assert.deepEqual(s.writes,[]); assert.deepEqual(await s.getClips(),clips);
   }
-  const s=await stored({}); await s.initializeStorage(); assert.equal(s.writes.length,2);
+  const s=await stored({}); await s.initializeStorage(); assert.equal(s.writes.length,1); assert.deepEqual(Object.keys(s.writes[0]).sort(), ['categories','clips']);
 });
 test('malformed or unreadable storage fails without overwriting existing values', async () => {
   for(const clips of [null,false,{},[{text:1}], [{id:'x',categoryId:'p',label:'x',text:'x',pinned:true,order:Infinity}]]) {
@@ -102,15 +102,21 @@ test('malformed or unreadable storage fails without overwriting existing values'
 });
 
 async function sidepanel({reply, query, storageFailure=false}={}) {
-  const buttons=[], listeners={}, status={dataset:{}}; let sends=0, queries=0;
-  const context={ getClips:async()=>[{label:'Sample',text:'text',pinned:false,order:1}], initializeStorage:async()=>{if(storageFailure) throw new Error('storage');},
+  const buttons=[], listeners={}, status={dataset:{}}, managementStatus={dataset:{}}; let sends=0, queries=0;
+  const context={ createClipManager: insert => ({
+    async start() {
+      if (storageFailure) { managementStatus.dataset.state = 'error'; return; }
+      buttons.push({disabled:false, click:()=>insert('text')});
+    },
+    setInsertionBusy(value) { buttons.forEach(button=>button.disabled=value); }
+  }), getClips:async()=>[{label:'Sample',text:'text',pinned:false,order:1}], initializeStorage:async()=>{if(storageFailure) throw new Error('storage');},
     document:{querySelector:selector=>selector==='#status'?status:{appendChild:button=>buttons.push(button)},createElement:()=>({addEventListener(name,fn){this.click=fn;}})},
     chrome:{tabs:{onActivated:{addListener:fn=>listeners.activate=fn},onUpdated:{addListener:fn=>listeners.update=fn},
       query:async()=>query ? query(++queries,listeners):[{id:7}],
       sendMessage:async(id,message,options)=>{sends++; assert.equal(options.frameId,0); return reply ? reply(message,listeners) : message.type==='PREPARE_CLIP'?{ok:true,token:'t'}:{ok:true,inserted:true};}
     }} };
   await vm.runInNewContext(`(async()=>{${panel}\nthis.send=sendClipText;})()`,context);
-  return {status,buttons,listeners,send:context.send,count:()=>sends};
+  return {status,managementStatus,buttons,listeners,send:context.send,count:()=>sends};
 }
 test('panel requires receiver acknowledgement and catches transport errors', async()=>{
   const p=await sidepanel(); await p.send('x'); assert.match(p.status.textContent,/置き換えました/); assert.equal(p.count(),2);
@@ -125,7 +131,7 @@ test('panel guards tab change, navigation and duplicate clicks', async()=>{
 });
 test('panel handles no tab, unsupported URL and storage failure', async()=>{
   for(const query of [()=>[],()=>[{id:7,url:'chrome://extensions'}]]) {const p=await sidepanel({query}); await p.send('x'); assert.equal(p.count(),0); assert.equal(p.status.dataset.state,'error');}
-  const p=await sidepanel({storageFailure:true}); assert.equal(p.buttons.length,0); assert.equal(p.status.dataset.state,'error');
+  const p=await sidepanel({storageFailure:true}); assert.equal(p.buttons.length,0); assert.equal(p.managementStatus.dataset.state,'error');
 });
 test('manifest keeps only existing permissions, HTTP(S), and classic content script',async()=>{
   const manifest=JSON.parse(await readFile(new URL('../dist/manifest.json',import.meta.url),'utf8'));
