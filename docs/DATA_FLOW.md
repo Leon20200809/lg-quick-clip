@@ -54,36 +54,53 @@ Side Panel、ページ内の処理、保存領域は別の場所です。役割�
 以下は成功する場合の順番です。途中の検査に失敗した場合は入力へ進まず、後述の案内になります。
 
 ```mermaid
-sequenceDiagram
-    actor User as 利用者
-    participant Field as Webページの入力欄
-    participant Content as content.ts
-    participant Panel as sidepanel.ts
-    participant Tabs as Chrome tabs API
-    User->>Field: 対応する入力欄を選ぶ
-    Field->>Content: focusin
-    Content->>Content: supportedで検査しtargetを記憶
-    User->>Panel: Clipをクリック
-    Panel->>Panel: busyにしてボタンを無効化
-    Panel->>Tabs: 現在のアクティブタブを取得
-    Tabs-->>Panel: tab IDと取得できる場合はURL
-    Panel->>Content: PREPARE_CLIP（tabs.sendMessage / frameId 0）
-    Content->>Content: validateでページと対象を再検査
-    Content->>Content: 一度限りのtokenを発行して保持
-    Content-->>Panel: ok true と token
-    Panel->>Panel: 応答と空でないtokenを確認
-    Panel->>Tabs: アクティブタブをもう一度取得
-    Tabs-->>Panel: 現在のtab ID
-    Panel->>Panel: tab IDとcontextVersionが同じか確認
-    Panel->>Content: INSERT_TEXT（text と token）
-    Content->>Content: validate、型、tokenの一致を確認
-    Content->>Content: tokenを消費して再利用を拒否
-    Content->>Field: valueをClip本文で全置換
-    Content->>Field: bubbles trueのinputイベントを1回通知
-    Content-->>Panel: ok true と inserted true
-    Panel->>Panel: 入力完了応答とcontextVersionを確認
-    Panel-->>User: 入力欄の値をClipで置き換えました。
-    Panel->>Panel: finallyでbusy解除とボタン再有効化
+
+flowchart TB
+    A["① 利用者がWebページの入力欄をクリック"]
+    B["content.ts<br/>focusinで入力欄を検知"]
+    C["supported()で対象を検査<br/>targetに記憶"]
+
+    D["② Side PanelでClipをクリック"]
+    E["sidepanel.ts<br/>busy=true・ボタン無効化"]
+    F["Chrome tabs API<br/>アクティブタブを取得"]
+
+    G["③ PREPARE_CLIPを送信<br/>frameId: 0"]
+    H["content.ts<br/>validate()で再検査"]
+    I["使い捨てtokenを生成・保持"]
+    J["Panelへtokenを返す"]
+
+    K["④ Panelでtokenを検証"]
+    L["アクティブタブを再取得"]
+    M{"tab IDと<br/>contextVersionは一致？"}
+    N["INSERT_TEXTを送信<br/>Clip本文＋token"]
+
+    O["content.ts<br/>対象・型・tokenを再検査"]
+    P["tokenを消費して再利用を防止"]
+    Q["入力欄のvalueを全置換"]
+    R["inputイベントを1回発火<br/>bubbles: true"]
+
+    S["⑤ Panelが入力成功応答を確認"]
+    T["成功メッセージを表示"]
+    U["finallyでbusy解除<br/>ボタン再有効化"]
+    X["失敗を通知・表示"]
+
+    A --> B --> C --> D --> E --> F
+    F --> G --> H
+    H -->|OK| I --> J --> K --> L --> M
+    M -->|Yes| N --> O
+    O -->|OK| P --> Q --> R --> S
+    S --> T --> U
+
+    H -->|NG| X
+    M -->|No| X
+    O -->|NG| X
+    X --> U
+
+    classDef success fill:#e6f4ea,stroke:#388e3c,color:#174b27
+    classDef error fill:#fde8e8,stroke:#c62828,color:#7f1d1d
+    class T success
+    class X error
+
 ```
 
 ### なぜ入力先を記憶するのか
