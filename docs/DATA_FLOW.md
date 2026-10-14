@@ -17,29 +17,43 @@
 ## 全体像
 
 ```mermaid
-flowchart LR
-    U["利用者"]
-    UI["Side Panel の画面"]
-    SP["sidepanel.ts"]
-    MSG["chrome.tabs.sendMessage"]
-    CS["content.ts / content script"]
-    FIELD["Webページの input / textarea"]
-    ST["storage.ts"]
-    DB[("chrome.storage.local")]
-    DEF["templates.ts / 初期例示データ"]
-    U -->|"Clipをクリック"| UI
-    UI --> SP
-    SP -->|"PREPARE_CLIP / INSERT_TEXT"| MSG
-    MSG -->|"frameId: 0"| CS
-    CS -->|"valueを全置換 / inputを通知"| FIELD
-    FIELD -->|"focusinなどの選択情報"| CS
-    CS -->|"予約・入力完了・失敗の応答"| SP
-    SP -->|"一覧と結果を表示"| UI
-    SP -->|"initializeStorage / getClips"| ST
-    ST -->|"get / 未作成キーだけset"| DB
-    DB -->|"保存済みデータ"| ST
-    DEF -->|"キーがない場合だけ使用"| ST
-    ST -->|"検証済みClipまたは例外"| SP
+
+flowchart TB
+    subgraph A["① Clipの管理と保存"]
+        direction TB
+        A1["利用者<br/>Clipを作成・編集・削除"]
+        A2["clip-manager.ts<br/>画面操作を管理"]
+        A3["storage.ts<br/>データ検証・保存・読込"]
+        A4[("chrome.storage.local<br/>保存領域")]
+        A5["Side Panel<br/>Clip一覧を表示"]
+        DEF["templates.ts<br/>初回サンプル"]
+
+        A1 --> A2 --> A3
+        DEF -->|"初期データ"| A3
+        A3 <-->|"get / set"| A4
+        A3 -->|"取得したClip"| A5
+    end
+
+    subgraph B["② Webページへの入力"]
+        direction TB
+        B1["利用者<br/>Webページの入力欄を選択"]
+        B2["content.ts<br/>focusinで入力先を記憶"]
+        B3["利用者<br/>Clipをクリック"]
+        B4["sidepanel.ts<br/>入力を依頼"]
+        B5["chrome.tabs.sendMessage<br/>PREPARE_CLIP → INSERT_TEXT"]
+        B6["content.ts<br/>入力先を再検証・値を変更"]
+        B7["Webページ<br/>input / textarea"]
+        B8["Side Panel<br/>成功・失敗を表示"]
+
+        B1 --> B2
+        B3 --> B4 --> B5 --> B6
+        B2 --> B6
+        B6 -->|"valueを全置換<br/>inputイベントを通知"| B7
+        B6 -.->|"実行結果を返す"| B8
+    end
+
+    A5 --> B3
+
 ```
 
 - **画面の担当**：[`sidepanel.ts`](../src/sidepanel/sidepanel.ts#L140-L166) が保存Clipをボタンにし、クリック時に `clip.text` を送ります。ラベルや状態表示には `textContent` を使い、文字列をHTMLとして実行させません。
