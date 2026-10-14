@@ -1,9 +1,8 @@
 /** 保存Clipを表示し、選択タブへの入力要求と利用者向けの結果表示を担当する。 */
-import { getClips, initializeStorage } from "../storage/storage.js";
+import { createClipManager } from "./clip-manager.js";
 
-const clipList = document.querySelector<HTMLDivElement>("#clip-list")!;
 const status = document.querySelector<HTMLParagraphElement>("#status")!;
-const buttons: HTMLButtonElement[] = [];
+const manager = createClipManager(sendClipText);
 let busy = false;
 let contextVersion = 0;
 const errors: Record<QuickClipFailure, string> = {
@@ -64,9 +63,7 @@ async function sendClipText(text: string): Promise<void> {
   // 通信中の再クリックを抑え、同じ操作が並行して欄を置き換えないようにする。
   if (busy) return;
   busy = true;
-  buttons.forEach((button) => {
-    button.disabled = true;
-  });
+  manager.setInsertionBusy(true);
   const version = contextVersion;
   show("入力先を確認しています…");
   try {
@@ -131,36 +128,10 @@ async function sendClipText(text: string): Promise<void> {
     }
   } finally {
     busy = false;
-    buttons.forEach((button) => {
-      button.disabled = false;
-    });
+    manager.setInsertionBusy(false);
   }
 }
 
-// 初期化・読込が成功したClipだけを描画し、失敗を空一覧や成功として扱わない。
-try {
-  await initializeStorage();
-  const clips = (await getClips()).sort(
-    (a, b) => Number(b.pinned) - Number(a.pinned) || a.order - b.order,
-  );
-  for (const clip of clips) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = clip.pinned ? `★ ${clip.label}` : clip.label;
-    button.addEventListener("click", () => {
-      void sendClipText(clip.text);
-    });
-    buttons.push(button);
-    clipList.appendChild(button);
-  }
-  show(
-    clips.length
-      ? "ページ上の入力欄を選び、Clipで値を全置換します。"
-      : "保存されたClipはありません。",
-  );
-} catch {
-  show(
-    "Clipを読み込めませんでした。保存データまたはストレージ接続を確認し、Side Panelを開き直してください。既存のClipは変更していません。",
-    true,
-  );
-}
+// 入力結果と管理結果を分け、タブ変更で未保存フォームの案内を消さない。
+show("ページ上の入力欄を選び、Clipで値を全置換します。");
+await manager.start();

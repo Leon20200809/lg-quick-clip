@@ -5,3 +5,20 @@ h1 { font-size: 1.25rem; }
 #clip-list { display: grid; gap: 8px; }
 button { padding: 10px; text-align: left; cursor: pointer; }
 button:disabled { cursor: wait; }
+
+[hidden] { display: none !important; }
+h2 { font-size: 1.05rem; }
+.notice, .help { font-size: .85rem; line-height: 1.5; color: #454545; }
+#management-status { line-height: 1.5; }
+#management-status[data-state="error"], .field-error { color: #a31515; }
+#clip-form, #delete-confirmation { border: 1px solid #b8b8b8; border-radius: 6px; padding: 12px; margin: 12px 0; }
+label { display: block; margin-top: 10px; }
+input, textarea { box-sizing: border-box; width: 100%; font: inherit; padding: 8px; }
+textarea { resize: vertical; }
+[aria-invalid="true"] { border: 2px solid #a31515; }
+.clip-row { border: 1px solid #ccc; border-radius: 6px; padding: 10px; min-width: 0; }
+.insert-clip { width: 100%; overflow-wrap: anywhere; }
+.clip-preview, #delete-description { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }
+.clip-preview { margin: 8px 0; font-size: .9rem; }
+.clip-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #175dba; outline-offset: 2px; }
