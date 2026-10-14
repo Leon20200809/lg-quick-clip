@@ -1,5 +1,7 @@
-/** ページで選ばれた入力欄を管理し、Side Panelからの全置換要求を安全確認後に実行する。 */
+/** ページで選ばれた入力欄を記憶し、Side Panelからの要求を再検査して値を全置換する。 */
+// IIFE（即時実行関数）で変数を閉じ込め、登録するリスナーが同じ状態を参照する（クロージャ）。
 (() => {
+  // targetは記憶した入力先、failureは対象がないときの理由、tokenは今回の予約の識別子。
   let target: HTMLInputElement | HTMLTextAreaElement | null = null;
   let failure: QuickClipFailure = "NO_TARGET";
   let token: string | null = null;
@@ -11,7 +13,8 @@
     "webauthn",
   ]);
 
-  /** 通常入力欄として書込み可能かを判定し、認証用途がautocompleteで明示された欄・別文書・Shadow DOMを除外する。 */
+  /** 同じ文書の通常入力欄かを確認する。選択時と要求時に使い、状態変化による誤入力を抑える。 */
+  // 戻り値の「element is ...」は型述語。trueの分岐でTypeScriptが入力欄の型に絞り込む。
   function supported(
     element: EventTarget | null,
   ): element is HTMLInputElement | HTMLTextAreaElement {
@@ -20,6 +23,8 @@
       element instanceof HTMLTextAreaElement
     ))
       return false;
+    // 切断・別文書・Shadow DOM・readonly・実効disabled（fieldset由来も含む）は対象外。
+    // inputはtext/email/telだけ。autocompleteのauthTokensにあるマーカーを拒否するが、認証欄の完全判定はできない。
     return (
       element.isConnected &&
       element.ownerDocument === document &&
@@ -35,27 +40,33 @@
     );
   }
 
-  /** 対象と予約トークンを失効させ、古い欄への誤入力を防ぐ。 */
+  /** 記憶した入力先と予約を破棄し、次の要求へ返す理由を残す。欄の値やdisabled属性は変えない。 */
   function clear(code: QuickClipFailure): void {
     target = null;
     token = null;
     failure = code;
   }
 
-  // ページ側の子要素が伝播を止めても、captureでフォーカス移動を先に把握する。
+  // 第3引数trueはcapture（捕捉段階）。子要素へ届く前にfocusinを受け、選択を更新する。
+  // 子要素での伝播停止より先に受け取れるが、すべてのイベントを検知できる保証ではない。
   document.addEventListener(
     "focusin",
     (event) => {
+      // 新しいフォーカスでは前の予約を無効にし、対象外なら以前の入力先も残さない。
       token = null;
       if (supported(event.target)) target = event.target;
       else clear("UNSUPPORTED_TARGET");
     },
     true,
   );
-  // disabled欄はfocusinが発生しないため押下でも解除する。Shadow DOMからの再ターゲットも拒否する。
+  // disabled欄はfocusinで拾えないため、pointerdownでも対象外の欄への移動を調べる。
+  // 下の要素・伝播経路の条件に合い、supportedがfalseなら、以前に記憶した入力先と予約を破棄する。
+  // 無関係な場所のクリックすべてで破棄するわけではない。disabled属性は変えず、押下の検知にも限界がある。
   document.addEventListener(
     "pointerdown",
     (event) => {
+      // event.targetはこのリスナーから見える対象。composedPath()[0]は公開された伝播経路の先頭。
+      // 両者の違いでShadow DOM等の再ターゲットを調べるが、閉じたShadow DOM内部は見えない。
       const element = event.target;
       if (
         element instanceof Element &&
@@ -71,17 +82,20 @@
     },
     true,
   );
-  // iframe内のfocusinは親へ届かないため、blur後に更新されたactiveElementを確認する。
+  // iframe内のfocusinは親文書へ届かない。windowのblur後、タイマーで確認を後へ回し、
+  // activeElementがiframeなら以前の入力先を破棄する。Side Panelへの移動だけでは破棄しない。
   window.addEventListener("blur", () => {
     setTimeout(() => {
       if (document.activeElement instanceof HTMLIFrameElement)
         clear("UNSUPPORTED_TARGET");
     }, 0);
   });
+  // ページを離れる際は、戻ったときに以前の入力先や予約を使わないよう破棄する。
   window.addEventListener("pagehide", () => clear("STALE_TARGET"));
 
-  /** 要求処理時のページ状態と対象を再検査し、選択後の無効化・削除も拒否する。 */
+  /** 両段階の要求でページと入力先を再検査する。nullは検査通過、それ以外は失敗理由。 */
   function validate(): QuickClipFailure | null {
+    // HTTP(S)のトップフレームだけが対象。非表示ページへの遅れた要求もここで拒否する。
     if (
       window !== window.top ||
       !["http:", "https:"].includes(location.protocol)
@@ -95,13 +109,15 @@
     return target ? null : failure;
   }
 
-  // 事前確認で予約し、同じ文書・選択のトークンを持つ入力要求だけ実行する二段階通信。
+  // PREPARE_CLIPで予約し、INSERT_TEXTで照合して書く二段階通信。
+  // tokenはこの文書で記憶している選択と要求を結びつける使い捨ての識別子で、認証用の秘密情報ではない。
   chrome.runtime.onMessage.addListener(
     (
       message: unknown,
       sender,
       respond: (response: QuickClipResponse) => void,
     ) => {
+      // 同じ拡張からのオブジェクトだけを扱う。型アサーション（as）は実行時の検証ではない。
       if (
         sender.id !== chrome.runtime.id ||
         !message ||
@@ -121,13 +137,14 @@
         return;
       }
       if (request.type === "PREPARE_CLIP") {
-        // 通常のHTTPページでも使えるgetRandomValuesで、今回の予約を識別する。
+        // ここでは値を書かず予約だけ作る。通常のHTTPページでも使えるgetRandomValuesを利用する。
         token = Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
           byte.toString(16).padStart(2, "0"),
         ).join("");
         respond({ ok: true, token });
         return;
       }
+      // INSERT_TEXTの本文と予約番号は、asによる型の指定だけに頼らず実際の型を確認する。
       if (
         typeof request.text !== "string" ||
         typeof request.token !== "string"
@@ -135,18 +152,23 @@
         respond({ ok: false, code: "INVALID_MESSAGE" });
         return;
       }
+      // 未予約・失効済み・別の予約なら書かない。ただし、ブラウザAPIを跨ぐ操作全体が
+      // 「すべて成功するか、何も変わらないか」のどちらかになる保証はない。
       if (!token || token !== request.token) {
         respond({ ok: false, code: "STALE_TARGET" });
         return;
       }
       token = null; // 書込み前に消費し、同じ予約の再送では実行しない。
       try {
-        // 値を全置換し、ページへinputを1回通知する。拡張自身はフォームを送信しない。
+        // valueへの代入は全置換（カーソル位置への挿入ではない）。「!」は型検査上の非null表明。
+        // inputを1回発火し、bubblesで親へ伝える。ページ側の反応やReact等の制御入力への反映は保証しない。
+        // 拡張自身はsubmit等を行わないが、ページがinputに反応して送信することまでは防げない。
         target!.value = request.text;
         target!.dispatchEvent(new Event("input", { bubbles: true }));
         respond({ ok: true, inserted: true });
       } catch {
-        // 書込み失敗後は対象も破棄し、成功応答や別の欄への代替入力を行わない。
+        // このtry内で例外を捕捉したら入力先も破棄し、失敗を返す。別の欄へは代替入力しない。
+        // すでに値を書いた後の例外もあり得る。変更を元に戻す処理はなく、ロールバックは保証しない。
         clear("WRITE_FAILED");
         respond({ ok: false, code: "WRITE_FAILED" });
       }
