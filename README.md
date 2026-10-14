@@ -2,6 +2,8 @@
 
 Chrome MV3 Side Panelから、最後に選んだ通常入力欄の値をClipで**全置換**するMVPです。Refs #1。Draft段階で、Chrome実機の最終確認はオーナーがローカルで行います。
 
+学習用: [データの流れとファイルの役割](docs/DATA_FLOW.md)
+
 ## ビルドと利用
 
 Node.js 22以上・npm・Bashを使用します。
